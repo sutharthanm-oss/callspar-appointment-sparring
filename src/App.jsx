@@ -2170,6 +2170,52 @@ Respond with ONLY valid JSON, no other text: {"reply": "<what the agent says nex
                       <div className="text-xs text-slate-500 mt-0.5">Avg score</div>
                     </div>
                   </div>
+
+                  {(() => {
+                    // Aggregate across ALL agents' sessions by real tester name — useful when
+                    // multiple people share one account (like James Bond during a demo), since
+                    // the per-agent breakdown above can't distinguish between them on its own.
+                    const byTester = {};
+                    dashboardData.agents.forEach((a) => {
+                      a.sessions.forEach((s) => {
+                        const name = (s.realName && s.realName.trim()) || null;
+                        if (!name) return;
+                        if (!byTester[name]) byTester[name] = { attempts: 0, passCount: 0 };
+                        byTester[name].attempts += 1;
+                        if (s.pass === "Pass") byTester[name].passCount += 1;
+                      });
+                    });
+                    const testerRows = Object.entries(byTester).sort((a, b) => b[1].attempts - a[1].attempts);
+                    if (testerRows.length === 0) return null;
+                    return (
+                      <div className="mb-5">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">By Tester Name</div>
+                        <div className="overflow-x-auto rounded-lg border border-slate-200">
+                          <table className="w-full text-xs border-collapse">
+                            <thead>
+                              <tr className="bg-slate-900 text-white">
+                                <th className="text-left font-semibold px-3 py-2">Tester Name</th>
+                                <th className="text-center font-semibold px-3 py-2">Total Attempts</th>
+                                <th className="text-center font-semibold px-3 py-2">Total Pass</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {testerRows.map(([name, stats], i) => (
+                                <tr key={name} className={i % 2 === 0 ? "bg-slate-50" : "bg-white"}>
+                                  <td className="px-3 py-2 align-top font-medium text-slate-800 border-t border-slate-100">{name}</td>
+                                  <td className="px-3 py-2 align-top text-center text-slate-600 border-t border-slate-100">{stats.attempts}</td>
+                                  <td className="px-3 py-2 align-top text-center border-t border-slate-100">
+                                    <span className={stats.passCount > 0 ? "text-teal-700 font-semibold" : "text-slate-400"}>{stats.passCount}</span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   <div className="space-y-2">
                     {dashboardData.agents.map((a) => {
                       const displayName = adminAgents.find((ag) => ag.code === a.agentCode)?.name || a.agentCode;
