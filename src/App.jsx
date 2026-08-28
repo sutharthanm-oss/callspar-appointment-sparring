@@ -2203,7 +2203,7 @@ Respond with ONLY valid JSON, no other text: {"reply": "<what the agent says nex
                                   <div className="flex items-start gap-2">
                                     <button onClick={() => setExpandedSessionId(sessionOpen ? null : s.sessionId)} className="flex-1 text-left">
                                       <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-                                        <span>{s.time ? new Date(s.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"} · {s.mode} · {s.difficulty}</span>
+                                        <span>{s.time ? new Date(s.time).toLocaleDateString([], { day: "2-digit", month: "short" }) + " · " + new Date(s.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"} · {s.mode} · {s.difficulty}</span>
                                         <span className={`font-semibold ${s.pass === "Pass" ? "text-teal-700" : "text-red-500"}`}>{s.score ?? "—"}/100 · {s.pass || "—"}</span>
                                       </div>
                                       {s.realName && (
