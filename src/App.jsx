@@ -169,7 +169,7 @@ const ASSESSMENT_STRING_FIELDS = [
 ];
 const ASSESSMENT_NUMBER_FIELDS = [
   "communication", "objection_handling", "appointment_closing", "listening",
-  "questioning", "confidence_tone", "script_intent", "overall", "ai_confidence",
+  "questioning", "confidence_tone", "script_intent", "overall",
 ];
 const ASSESSMENT_ARRAY_FIELDS = ["all_mistakes", "things_done_well"];
 const ASSESSMENT_FIELD_ORDER = [
@@ -181,7 +181,7 @@ const ASSESSMENT_FIELD_ORDER = [
   "confidence_tone", "confidence_tone_evidence", "confidence_tone_improvement",
   "script_intent", "script_intent_evidence", "script_intent_improvement",
   "overall", "pass_status", "appointment_outcome", "compliance_result", "compliance_issue",
-  "ai_confidence", "one_biggest_mistake", "highest_impact_improvement",
+  "one_biggest_mistake", "highest_impact_improvement",
   "strongest_sentence", "strongest_question", "better_response", "better_close",
   "full_report", "flagged_technique", "flagged_technique_reason",
   "all_mistakes", "things_done_well",
@@ -930,7 +930,7 @@ Conversation starter used (${language}): "${starterText(starter, language)}"
 End reason: ${endReason}
 
 Respond with ONLY valid JSON in this exact shape:
-{"communication":0,"communication_evidence":"","communication_improvement":"","objection_handling":0,"objection_handling_evidence":"","objection_handling_improvement":"","appointment_closing":0,"appointment_closing_evidence":"","appointment_closing_improvement":"","listening":0,"listening_evidence":"","listening_improvement":"","questioning":0,"questioning_evidence":"","questioning_improvement":"","confidence_tone":0,"confidence_tone_evidence":"","confidence_tone_improvement":"","script_intent":0,"script_intent_evidence":"","script_intent_improvement":"","overall":0,"pass_status":"Pass or Retry","appointment_outcome":"Secured or Not Secured","compliance_result":"Pass or Fail","compliance_issue":"","ai_confidence":0,"one_biggest_mistake":"","highest_impact_improvement":"","strongest_sentence":"","strongest_question":"","better_response":"","better_close":"","full_report":"","flagged_technique":"","flagged_technique_reason":"","all_mistakes":[],"things_done_well":[]}
+{"communication":0,"communication_evidence":"","communication_improvement":"","objection_handling":0,"objection_handling_evidence":"","objection_handling_improvement":"","appointment_closing":0,"appointment_closing_evidence":"","appointment_closing_improvement":"","listening":0,"listening_evidence":"","listening_improvement":"","questioning":0,"questioning_evidence":"","questioning_improvement":"","confidence_tone":0,"confidence_tone_evidence":"","confidence_tone_improvement":"","script_intent":0,"script_intent_evidence":"","script_intent_improvement":"","overall":0,"pass_status":"Pass or Retry","appointment_outcome":"Secured or Not Secured","compliance_result":"Pass or Fail","compliance_issue":"","one_biggest_mistake":"","highest_impact_improvement":"","strongest_sentence":"","strongest_question":"","better_response":"","better_close":"","full_report":"","flagged_technique":"","flagged_technique_reason":"","all_mistakes":[],"things_done_well":[]}
 
 If the agent used an effective technique that is NOT part of the approved objection library or standard script (per AI Constitution Article 24), briefly describe it in flagged_technique and explain why it worked in flagged_technique_reason. Leave both as empty strings if nothing notable falls outside the approved library. This flag is for Admin review only — it does not affect the score.`;
 
@@ -1105,7 +1105,6 @@ Respond with ONLY valid JSON, no other text: {"reply": "<what the agent says nex
       script_intent: 5, script_intent_evidence: `${quote(openingLine)} — stayed fully aligned with the starter's intent from open to close.`,
       script_intent_improvement: "Continue anchoring every response back to the starter's core question.",
       overall: 100, pass_status: "Pass", appointment_outcome: "Secured", compliance_result: "Pass", compliance_issue: "",
-      ai_confidence: 100,
       one_biggest_mistake: "None — this is a scripted, gold-standard example run, not a graded live session.",
       highest_impact_improvement: "Nothing to improve — this demonstrates the ceiling of what a fully executed session looks like.",
       strongest_sentence: finalCloseLine,
@@ -1370,7 +1369,6 @@ Respond with ONLY valid JSON, no other text: {"reply": "<what the agent says nex
     table(["Field", "Detail"], [120, 373], [
       ["Overall Score", `${assessment.overall}/100 — ${assessment.pass_status === "Pass" ? "PASS" : "RETRY"}`],
       ["Appointment", assessment.appointment_outcome],
-      ["AI Confidence", `${assessment.ai_confidence}%`],
       ["Compliance", assessment.compliance_result],
     ]);
     rule();
@@ -2675,7 +2673,7 @@ Respond with ONLY valid JSON, no other text: {"reply": "<what the agent says nex
           {passed ? <CheckCircle2 className="mx-auto text-teal-600 mb-2" size={36} /> : <XCircle className="mx-auto text-red-500 mb-2" size={36} />}
           <div className="text-4xl font-bold text-slate-900">{assessment.overall}<span className="text-lg text-slate-400">/100</span></div>
           <div className={`text-sm font-semibold mt-1 ${passed ? "text-teal-700" : "text-red-600"}`}>{passed ? "PASS" : "RETRY"}</div>
-          <div className="text-slate-500 text-xs mt-2">Appointment: {assessment.appointment_outcome} · AI confidence {assessment.ai_confidence}%</div>
+          <div className="text-slate-500 text-xs mt-2">Appointment: {assessment.appointment_outcome}</div>
         </div>
 
         <div className="px-5 mt-6">
