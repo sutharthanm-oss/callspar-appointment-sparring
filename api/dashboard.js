@@ -125,7 +125,17 @@ export default async function handler(req, res) {
       categoryEvidence: "",
       allMistakes: [],
       thingsDoneWell: [],
-    }));
+    }))
+    // James Bond is the shared test/demo account — a session run under it without a real
+    // name entered (or with "James Bond" typed in as if it were one) means the admin was
+    // using it for a demo or debugging, not a real agent practicing. Exclude these
+    // entirely from the Dashboard and every summary table, everywhere.
+    .filter((s) => {
+      const isJamesBondAccount = s.agentCode === "AFG007";
+      const noRealName = !s.realName || !s.realName.trim();
+      const typedJamesBondAsName = s.realName && s.realName.trim().toLowerCase() === "james bond";
+      return !(isJamesBondAccount && (noRealName || typedJamesBondAsName));
+    });
 
     // Resolve prospect names/locations. The Prospect Library is small (dozens of records),
     // so fetching it once per request and matching by record ID is simpler and more
