@@ -36,8 +36,11 @@ export default async function handler(req, res) {
 
   try {
     const escapedName = realName.trim().replace(/"/g, '\\"');
+    // Explicitly case- and whitespace-insensitive — "Viny", "VINY", and " Viny " must all
+    // count as the same person. Deliberately not relying on Airtable's default comparison
+    // behavior here, since getting this wrong would silently undercount real people.
     const filterFormula = encodeURIComponent(
-      `AND({Tester Real Name} = "${escapedName}", {Appointment Outcome} = "Secured", {Valid Session} = TRUE())`
+      `AND(LOWER(TRIM({Tester Real Name})) = LOWER(TRIM("${escapedName}")), {Appointment Outcome} = "Secured", {Valid Session} = TRUE())`
     );
     const resp = await fetch(
       `https://api.airtable.com/v0/${BASE_ID}/${TABLE_TRAINING_SESSIONS}?filterByFormula=${filterFormula}&fields[]=Session ID`,
