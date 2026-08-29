@@ -2219,18 +2219,25 @@ Respond with ONLY valid JSON, no other text: {"reply": "<what the agent says nex
                                 <th className="text-left font-semibold px-3 py-2">Tester Name</th>
                                 <th className="text-center font-semibold px-3 py-2">Total Attempts</th>
                                 <th className="text-center font-semibold px-3 py-2">Total Pass</th>
+                                <th className="text-center font-semibold px-3 py-2">Success Ratio</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {testerRows.map(([name, stats], i) => (
-                                <tr key={name} className={i % 2 === 0 ? "bg-slate-50" : "bg-white"}>
-                                  <td className="px-3 py-2 align-top font-medium text-slate-800 border-t border-slate-100">{name}</td>
-                                  <td className="px-3 py-2 align-top text-center text-slate-600 border-t border-slate-100">{stats.attempts}</td>
-                                  <td className="px-3 py-2 align-top text-center border-t border-slate-100">
-                                    <span className={stats.passCount > 0 ? "text-teal-700 font-semibold" : "text-slate-400"}>{stats.passCount}</span>
-                                  </td>
-                                </tr>
-                              ))}
+                              {testerRows.map(([name, stats], i) => {
+                                const ratio = stats.attempts > 0 ? (stats.passCount / stats.attempts) * 100 : 0;
+                                return (
+                                  <tr key={name} className={i % 2 === 0 ? "bg-slate-50" : "bg-white"}>
+                                    <td className="px-3 py-2 align-top font-medium text-slate-800 border-t border-slate-100">{name}</td>
+                                    <td className="px-3 py-2 align-top text-center text-slate-600 border-t border-slate-100">{stats.attempts}</td>
+                                    <td className="px-3 py-2 align-top text-center border-t border-slate-100">
+                                      <span className={stats.passCount > 0 ? "text-teal-700 font-semibold" : "text-slate-400"}>{stats.passCount}</span>
+                                    </td>
+                                    <td className="px-3 py-2 align-top text-center border-t border-slate-100">
+                                      <span className={ratio >= 80 ? "text-teal-700 font-semibold" : "text-slate-600"}>{ratio.toFixed(2)}%</span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>
