@@ -741,7 +741,6 @@ export default function App() {
       setVerifyState(data.valid ? "verified" : "invalid");
       if (data.valid) {
         loadMySessions(agentCode);
-        checkBetaEligibility();
       }
     } catch (e) {
       setVerifyError("Couldn't reach the server: " + e.message);
@@ -749,15 +748,14 @@ export default function App() {
     }
   }
 
-  async function checkBetaEligibility() {
+  async function checkBetaEligibility(nameToCheck) {
     setBetaEligible(false);
-    setUseCustomAvatar(false);
-    if (agentName !== "James Bond" || !realName.trim()) return;
+    if (agentName !== "James Bond" || !nameToCheck || !nameToCheck.trim()) return;
     try {
       const resp = await fetch("/api/beta-eligibility", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ realName: realName.trim() }),
+        body: JSON.stringify({ realName: nameToCheck.trim() }),
       });
       const data = await resp.json();
       setBetaEligible(!!data.eligible);
@@ -766,6 +764,21 @@ export default function App() {
       setBetaEligible(false);
     }
   }
+
+  // Re-checks eligibility whenever the real name changes OR verification completes —
+  // not just once at the moment "Verify" happens to be tapped. Without this, editing the
+  // name after verifying (or finishing verification before finishing typing the name)
+  // would leave eligibility checked against a stale or incomplete name, permanently.
+  // Debounced slightly so it doesn't fire on every single keystroke.
+  useEffect(() => {
+    if (verifyState !== "verified" || agentName !== "James Bond") {
+      setBetaEligible(false);
+      setUseCustomAvatar(false);
+      return;
+    }
+    const timeout = setTimeout(() => checkBetaEligibility(realName), 500);
+    return () => clearTimeout(timeout);
+  }, [realName, verifyState, agentName]);
 
   useEffect(() => {
     if (screen === "roleplay" && !roleplayEnded) {
@@ -2879,3 +2892,158 @@ Respond with ONLY valid JSON, no other text: {"reply": "<what the agent says nex
                 </ul>
               </div>
             )}
+
+            {assessment.things_done_well && assessment.things_done_well.length > 0 && (
+              <div className="px-5 mt-5">
+                <div className="text-xs font-semibold uppercase tracking-wide text-teal-700 mb-2">Everything done well</div>
+                <ul className="space-y-1.5">
+                  {assessment.things_done_well.map((g, i) => (
+                    <li key={i} className="text-sm text-slate-700 flex gap-2"><span className="text-teal-500">•</span>{stripBulletPrefix(g)}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="px-5 mt-6 space-y-3">
+              {assessment.strongest_sentence && <Card title="Strongest sentence" body={`"${assessment.strongest_sentence}"`} icon={<CheckCircle2 size={14} className="text-teal-600" />} />}
+              {assessment.better_close && <Card title="A better close" body={assessment.better_close} icon={<Phone size={14} className="text-teal-600" />} />}
+              {assessment.compliance_result === "Fail" && <Card title="Compliance issue" body={assessment.compliance_issue} icon={<XCircle size={14} className="text-red-500" />} tone="danger" />}
+            </div>
+          </>
+        )}
+
+        <div className="px-5 mt-8 space-y-3">
+          {!passed && (
+            <p className="text-center text-sm text-slate-600 max-w-xs mx-auto mb-1">
+              {mode === "Practice"
+                ? "This was practice — nobody's judging you. Fix the focus area above and go again."
+                : "Not this time, and that's normal early on. Fix the focus area above, then retry."}
+            </p>
+          )}
+          <button onClick={downloadSessionPDF}
+            className="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-lg py-3 flex items-center justify-center gap-2">
+            <FileDown size={16} /> View & save report (PDF, opens in new tab)
+          </button>
+          {submitState === "done" ? (
+            <div className="text-center text-teal-700 text-sm py-3 font-medium">✓ Assessment recorded in Airtable.</div>
+          ) : mode === "Demo" ? (
+            <div className="text-center text-slate-400 text-xs py-3 bg-slate-50 border border-slate-200 rounded-lg">
+              Master Inviter sessions are scripted demonstrations and can't be submitted as a real assessment.
+            </div>
+          ) : (
+            <button onClick={submitToAirtable} disabled={submitState === "submitting"}
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg py-3.5 flex items-center justify-center gap-2 disabled:opacity-50">
+              {submitState === "submitting" ? <><Loader2 size={16} className="animate-spin" /> Submitting…</> : "Submit assessment"}
+            </button>
+          )}
+          {submitState === "error" && (
+            <div className="text-center text-red-600 text-xs">Submission failed: {submitError || "please try again."}</div>
+          )}
+          <button onClick={resetApp}
+            className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold text-lg rounded-lg py-4">
+            Start a new session
+          </button>
+        </div>
+        </>
+        )}
+
+        {resultsTab === "cue" && (
+          <div className="px-5 py-6">
+            {cueLoading ? (
+              <div className="flex items-center justify-center gap-2 text-slate-500 text-sm py-10">
+                <Loader2 size={16} className="animate-spin" /> Reading through the conversation's momentum…
+              </div>
+            ) : !cueAnalysis || cueAnalysis.error ? (
+              <div className="text-center text-slate-500 text-sm py-10">
+                Cue Timeline isn't available for this session.
+              </div>
+            ) : (
+              <>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-4">Cue Timeline</div>
+                <div className="space-y-0.5">
+                  {(cueAnalysis.timeline || []).map((ev, i) => {
+                    const mm = String(Math.floor((ev.time_seconds || 0) / 60)).padStart(2, "0");
+                    const ss = String((ev.time_seconds || 0) % 60).padStart(2, "0");
+                    const iconMap = {
+                      disengagement: <TrendingDown size={14} className="text-orange-500" />,
+                      resistance: <TrendingUp size={14} className="text-orange-500" />,
+                      engagement: <TrendingUp size={14} className="text-teal-600" />,
+                      missed: <XCircle size={14} className="text-red-500" />,
+                      good_response: <CheckCircle2 size={14} className="text-teal-600" />,
+                      closing_opportunity: <Award size={14} className="text-amber-500" />,
+                      close_attempted: <CheckCircle2 size={14} className="text-blue-600" />,
+                    };
+                    const isOpen = expandedCueIndex === i;
+                    return (
+                      <div key={i} className="border-b border-slate-100 last:border-0">
+                        <button
+                          onClick={() => ev.important && setExpandedCueIndex(isOpen ? null : i)}
+                          className={`w-full flex items-start gap-3 py-3 text-left ${ev.important ? "cursor-pointer" : "cursor-default"}`}>
+                          <span className="font-mono text-xs text-slate-400 pt-0.5 w-11 shrink-0">{mm}:{ss}</span>
+                          <span className="pt-0.5 shrink-0">{iconMap[ev.type] || null}</span>
+                          <span className="flex-1">
+                            <span className="text-sm font-semibold text-slate-800">{ev.label}</span>
+                            <span className="block text-xs text-slate-500 mt-0.5">{ev.summary}</span>
+                          </span>
+                          {ev.important && <ChevronRight size={14} className={`text-slate-300 mt-1 shrink-0 transition-transform ${isOpen ? "rotate-90" : ""}`} />}
+                        </button>
+                        {isOpen && ev.important && (
+                          <div className="pb-4 pl-14 pr-2 space-y-2.5 text-xs">
+                            <div><span className="font-semibold text-slate-500">What happened: </span><span className="text-slate-700">{ev.what_happened}</span></div>
+                            <div><span className="font-semibold text-slate-500">What CallSpar detected: </span><span className="text-slate-700">{ev.what_detected}</span></div>
+                            <div><span className="font-semibold text-slate-500">What you did: </span><span className="text-slate-700">{ev.what_you_did}</span></div>
+                            <div><span className="font-semibold text-slate-500">What happened next: </span><span className="text-slate-700">{ev.what_happened_next}</span></div>
+                            <div className="pt-2 border-t border-slate-100"><span className="font-semibold text-teal-700">Better move: </span><span className="text-slate-700">{ev.better_move}</span></div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {cueAnalysis.biggest_opportunity && (
+                  <div className="mt-6 rounded-xl border-2 border-teal-600 bg-teal-50 p-5">
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-teal-700 mb-2.5">
+                      <Award size={16} /> Your Biggest Opportunity
+                    </div>
+                    <p className="text-sm text-slate-900 leading-relaxed mb-3">{cueAnalysis.biggest_opportunity.body}</p>
+                    <div className="text-xs text-slate-600 pt-3 border-t border-teal-200">
+                      <span className="font-semibold text-teal-700">Next sparring focus: </span>{cueAnalysis.biggest_opportunity.next_focus}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function PillGroup({ label, value, onChange, options }) {
+  return (
+    <div>
+      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2 block">{label}</label>
+      <div className="flex flex-wrap gap-2">
+        {options.map((opt) => (
+          <button key={opt} onClick={() => onChange(opt)}
+            className={`px-3.5 py-2 rounded-full text-sm border transition-colors ${
+              value === opt ? "bg-slate-900 text-white border-slate-900 font-medium" : "border-slate-300 text-slate-600 hover:border-slate-400"
+            }`}>{opt}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Card({ title, body, icon, tone }) {
+  return (
+    <div className={`rounded-lg p-4 border ${tone === "danger" ? "bg-red-50 border-red-200" : "bg-slate-50 border-slate-200"}`}>
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">{icon}{title}</div>
+      <div className="text-sm text-slate-700 leading-relaxed">{body}</div>
+    </div>
+  );
+}
