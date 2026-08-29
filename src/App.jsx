@@ -339,6 +339,7 @@ export default function App() {
   const [adminActionState, setAdminActionState] = useState("idle"); // idle | saving | done | error
   const [flaggedTechniques, setFlaggedTechniques] = useState([]);
   const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardLastFetched, setDashboardLastFetched] = useState(null);
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [expandedAgentRow, setExpandedAgentRow] = useState(null);
   const [expandedSessionId, setExpandedSessionId] = useState(null);
@@ -554,7 +555,7 @@ export default function App() {
       const url = range === "all" ? "/api/dashboard?range=all" : "/api/dashboard";
       const resp = await fetch(url, { headers: { "x-admin-secret": secret } });
       const data = await resp.json();
-      if (resp.ok) setDashboardData(data);
+      if (resp.ok) { setDashboardData(data); setDashboardLastFetched(new Date()); }
     } catch (e) {
       // Non-critical — Admin panel still works without the dashboard loading.
     } finally {
@@ -2132,7 +2133,14 @@ Respond with ONLY valid JSON, no other text: {"reply": "<what the agent says nex
                 <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
                   Dashboard {dashboardData ? `— ${dashboardData.date}` : ""}
                 </h2>
-                <button onClick={() => loadDashboard(adminSecretInput.trim(), dashboardRange)} className="text-xs text-teal-700 font-medium">Refresh</button>
+                <div className="flex items-center gap-2">
+                  {dashboardLastFetched && (
+                    <span className="text-xs text-slate-400">
+                      Updated {dashboardLastFetched.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  )}
+                  <button onClick={() => loadDashboard(adminSecretInput.trim(), dashboardRange)} className="text-xs text-teal-700 font-medium">Refresh</button>
+                </div>
               </div>
               <div className="flex gap-2 mb-3">
                 <button onClick={() => { setDashboardRange("all"); loadDashboard(adminSecretInput.trim(), "all"); }}
