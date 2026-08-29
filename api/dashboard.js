@@ -90,7 +90,7 @@ export default async function handler(req, res) {
         : `IS_SAME({Session Date-Time}, TODAY(), "day")`;
       filterFormula = encodeURIComponent(`AND({Valid Session} = TRUE(), ${dateFormula})`);
     }
-    const fields = ["Session ID", "Agent Code Submitted", "Session Date-Time", "Overall Score", "Pass Status", "Mode", "Difficulty", "Appointment Outcome", "Prospect", "Full Transcript", "Tester Real Name"]
+    const fields = ["Session ID", "Agent Code Submitted", "Session Date-Time", "Overall Score", "Pass Status", "Mode", "Difficulty", "Appointment Outcome", "Prospect", "Full Transcript", "Tester Real Name", "Cue Timeline"]
       .map((f) => `fields[]=${encodeURIComponent(f)}`).join("&");
 
     const sessionsData = await airtableGetAllPages(
@@ -109,6 +109,14 @@ export default async function handler(req, res) {
       outcome: r.fields["Appointment Outcome"] || "",
       transcript: r.fields["Full Transcript"] || "",
       realName: r.fields["Tester Real Name"] || "",
+      cueTimeline: (() => {
+        try {
+          const raw = r.fields["Cue Timeline"];
+          return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+          return null;
+        }
+      })(),
       prospectRecordId: (r.fields["Prospect"] || [])[0] || "",
       prospectName: "",
       prospectLocation: "",
@@ -141,26 +149,34 @@ export default async function handler(req, res) {
     }
 
     // Coaching Reports are named "CR-<sessionId>" by /api/submit.js — use that directly
-    // instead of resolving linked-record IDs, which keeps this to a single extra request.
+    // instead of resolving linked-record IDs, which keeps this to a single extra request
+    // per batch. Batched in chunks of 30 — an unbatched single formula with one clause per
+    // session risks exceeding Airtable's URL length limit once the total session count
+    // grows, which would silently fail this whole enrichment step for every session past
+    // whatever point the URL became too long.
     if (sessions.length > 0) {
-      const crFormula = encodeURIComponent(
-        "OR(" + sessions.map((s) => `{Coaching Report ID}="CR-${s.sessionId}"`).join(",") + ")"
-      );
-      const crFields = ["Coaching Report ID", "One Biggest Mistake", "One Highest-Impact Improvement", "Category Evidence", "All Mistakes", "Things Done Well"]
-        .map((f) => `fields[]=${encodeURIComponent(f)}`).join("&");
-      const crData = await airtableGetAllPages(`${TABLE_COACHING_REPORTS}?filterByFormula=${crFormula}&${crFields}`, token);
+      const BATCH_SIZE = 30;
       const bySessionId = {};
-      (crData.records || []).forEach((r) => {
-        const crId = r.fields["Coaching Report ID"] || "";
-        const sid = crId.replace(/^CR-/, "");
-        bySessionId[sid] = {
-          mistake: r.fields["One Biggest Mistake"] || "",
-          improvement: r.fields["One Highest-Impact Improvement"] || "",
-          categoryEvidence: r.fields["Category Evidence"] || "",
-          allMistakes: (r.fields["All Mistakes"] || "").split("\n").map((s) => stripBulletPrefix(s)).filter(Boolean),
-          thingsDoneWell: (r.fields["Things Done Well"] || "").split("\n").map((s) => stripBulletPrefix(s)).filter(Boolean),
-        };
-      });
+      for (let i = 0; i < sessions.length; i += BATCH_SIZE) {
+        const batch = sessions.slice(i, i + BATCH_SIZE);
+        const crFormula = encodeURIComponent(
+          "OR(" + batch.map((s) => `{Coaching Report ID}="CR-${s.sessionId}"`).join(",") + ")"
+        );
+        const crFields = ["Coaching Report ID", "One Biggest Mistake", "One Highest-Impact Improvement", "Category Evidence", "All Mistakes", "Things Done Well"]
+          .map((f) => `fields[]=${encodeURIComponent(f)}`).join("&");
+        const crData = await airtableGetAllPages(`${TABLE_COACHING_REPORTS}?filterByFormula=${crFormula}&${crFields}`, token);
+        (crData.records || []).forEach((r) => {
+          const crId = r.fields["Coaching Report ID"] || "";
+          const sid = crId.replace(/^CR-/, "");
+          bySessionId[sid] = {
+            mistake: r.fields["One Biggest Mistake"] || "",
+            improvement: r.fields["One Highest-Impact Improvement"] || "",
+            categoryEvidence: r.fields["Category Evidence"] || "",
+            allMistakes: (r.fields["All Mistakes"] || "").split("\n").map((s) => stripBulletPrefix(s)).filter(Boolean),
+            thingsDoneWell: (r.fields["Things Done Well"] || "").split("\n").map((s) => stripBulletPrefix(s)).filter(Boolean),
+          };
+        });
+      }
       sessions.forEach((s) => {
         const match = bySessionId[s.sessionId];
         if (match) {
