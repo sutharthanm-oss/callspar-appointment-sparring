@@ -340,6 +340,7 @@ export default function App() {
   const [flaggedTechniques, setFlaggedTechniques] = useState([]);
   const [dashboardData, setDashboardData] = useState(null);
   const [dashboardLastFetched, setDashboardLastFetched] = useState(null);
+  const [dashboardError, setDashboardError] = useState("");
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [expandedAgentRow, setExpandedAgentRow] = useState(null);
   const [expandedSessionId, setExpandedSessionId] = useState(null);
@@ -555,9 +556,17 @@ export default function App() {
       const url = range === "all" ? "/api/dashboard?range=all" : "/api/dashboard";
       const resp = await fetch(url, { headers: { "x-admin-secret": secret } });
       const data = await resp.json();
-      if (resp.ok) { setDashboardData(data); setDashboardLastFetched(new Date()); }
+      if (resp.ok) {
+        setDashboardData(data);
+        setDashboardLastFetched(new Date());
+        setDashboardError("");
+      } else {
+        // A failed request must never leave stale data on screen looking current — that's
+        // indistinguishable from a real data bug to whoever's looking at it.
+        setDashboardError(data?.error || `Dashboard request failed (HTTP ${resp.status}).`);
+      }
     } catch (e) {
-      // Non-critical — Admin panel still works without the dashboard loading.
+      setDashboardError("Could not reach the server: " + e.message);
     } finally {
       setDashboardLoading(false);
     }
@@ -2136,12 +2145,17 @@ Respond with ONLY valid JSON, no other text: {"reply": "<what the agent says nex
                 <div className="flex items-center gap-2">
                   {dashboardLastFetched && (
                     <span className="text-xs text-slate-400">
-                      Updated {dashboardLastFetched.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      Updated {dashboardLastFetched.toLocaleDateString([], { day: "2-digit", month: "short" })} · {dashboardLastFetched.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
                   )}
                   <button onClick={() => loadDashboard(adminSecretInput.trim(), dashboardRange)} className="text-xs text-teal-700 font-medium">Refresh</button>
                 </div>
               </div>
+              {dashboardError && (
+                <div className="mb-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                  Dashboard couldn't refresh: {dashboardError} — showing the last successful load, not current data.
+                </div>
+              )}
               <div className="flex gap-2 mb-3">
                 <button onClick={() => { setDashboardRange("all"); loadDashboard(adminSecretInput.trim(), "all"); }}
                   className={`text-xs font-medium rounded-full px-3 py-1.5 border ${dashboardRange === "all" ? "bg-slate-900 text-white border-slate-900" : "border-slate-300 text-slate-600"}`}>
