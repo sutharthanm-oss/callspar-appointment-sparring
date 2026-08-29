@@ -61,7 +61,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { agentCode, sessionId, mode, language, difficulty, starterId, assessment, transcript, realName } = req.body || {};
+  const { agentCode, sessionId, mode, language, difficulty, starterId, assessment, transcript, realName, cueTimeline } = req.body || {};
   if (!agentCode || !sessionId || !assessment) {
     res.status(400).json({ error: "Missing agentCode, sessionId, or assessment in request body." });
     return;
@@ -109,9 +109,9 @@ export default async function handler(req, res) {
               "Appointment Outcome": assessment.appointment_outcome,
               "Compliance Result": assessment.compliance_result,
               "Compliance Issue": assessment.compliance_issue || "",
-              "AI Assessment Confidence": assessment.ai_confidence,
               "Full Transcript": transcript || "",
               "Tester Real Name": realName || "",
+              "Cue Timeline": cueTimeline || "",
               "Valid Session": true,
               "Agent": [agentRecordId],
             },
@@ -133,7 +133,6 @@ export default async function handler(req, res) {
               "Final Outcome": assessment.appointment_outcome,
               "Overall Score": assessment.overall,
               "Pass or Retry": assessment.pass_status,
-              "AI Confidence": assessment.ai_confidence,
               "Category Evidence": [
                 `Communication (${assessment.communication}/25): ${assessment.communication_evidence || ""} | Improve: ${assessment.communication_improvement || ""}`,
                 `Objection Handling (${assessment.objection_handling}/25): ${assessment.objection_handling_evidence || ""} | Improve: ${assessment.objection_handling_improvement || ""}`,
@@ -161,7 +160,25 @@ export default async function handler(req, res) {
       }),
     });
 
-    // 5. If the assessment flagged an effective-but-unapproved technique, log it for Admin
+    // 5. Notify Telegram that a session was just completed â separate from the flagged
+    // technique alert below, and never lets a notification failure block the submission.
+    try {
+      const displayName = (realName && realName.trim()) || agentCode;
+      const passEmoji = assessment.pass_status === "Pass" ? "â" : "ð";
+      const outcomeEmoji = assessment.appointment_outcome === "Secured" ? "ð" : "â";
+      await notifyTelegram(
+        `${passEmoji} <b>${displayName}</b> just completed a session\n\n` +
+        `Score: <b>${assessment.overall}/100</b> â ${assessment.pass_status}\n` +
+        `Appointment: ${outcomeEmoji} ${assessment.appointment_outcome}\n` +
+        `Mode: ${mode} Â· Difficulty: ${difficulty}\n\n` +
+        `<b>Focus area:</b> ${assessment.highest_impact_improvement || "â"}\n\n` +
+        `Session: ${sessionId}`
+      );
+    } catch (notifyErr) {
+      // Swallow â a notification failure should never block a successful session submission.
+    }
+
+    // 6. If the assessment flagged an effective-but-unapproved technique, log it for Admin
     // review and ping Telegram â but never let a problem here fail the actual submission.
     if (assessment.flagged_technique && assessment.flagged_technique.trim()) {
       try {
